@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Next.js
+.next/
+out/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Prisma
+/infra/database/prisma/.env
