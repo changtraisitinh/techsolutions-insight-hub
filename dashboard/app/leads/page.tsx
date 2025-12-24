@@ -29,6 +29,49 @@ export default function LeadsPage() {
         return matchesSearch && matchesQuality;
     });
 
+    const handleExport = () => {
+        if (filteredLeads.length === 0) return;
+
+        const csv = [
+            ['Name', 'Category', 'Location', 'Phone', 'Rating', 'Quality Score', 'Website', 'Date Extracted'].join(','),
+            ...filteredLeads.map(lead => [
+                lead.name,
+                lead.category,
+                lead.location,
+                lead.phone,
+                lead.rating,
+                lead.quality,
+                lead.website || '',
+                lead.extracted
+            ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        // Create CSV with UTF-8 BOM for Excel compatibility
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `exported_leads_${dateStr}.csv`;
+
+        // Re-force the download attribute and append to DOM
+        document.body.appendChild(a);
+
+        // Trigger download
+        a.click();
+
+        // Use a longer delay to ensure the browser processes the resource before revocation
+        setTimeout(() => {
+            if (document.body.contains(a)) {
+                document.body.removeChild(a);
+            }
+            window.URL.revokeObjectURL(url);
+        }, 2000);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -37,7 +80,10 @@ export default function LeadsPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Leads Management</h1>
                     <p className="text-gray-600 mt-2">Browse and manage all extracted leads</p>
                 </div>
-                <button className="btn-primary flex items-center gap-2">
+                <button
+                    onClick={handleExport}
+                    className="btn-primary flex items-center gap-2"
+                >
                     <ArrowDownTrayIcon className="w-5 h-5" />
                     Export All
                 </button>
@@ -140,8 +186,8 @@ export default function LeadsPage() {
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${lead.quality >= 85 ? 'bg-green-100 text-green-700' :
-                                                lead.quality >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            lead.quality >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {lead.quality}
                                         </span>

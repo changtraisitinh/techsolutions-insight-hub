@@ -58,7 +58,9 @@ class GoogleMapsAPIExtractor:
                     'rating',
                     'user_ratings_total',
                     'types',
-                    'geometry'
+                    'geometry',
+                    'url',
+                    'business_status'
                 ])['result']
                 
                 # Build lead object
@@ -67,9 +69,11 @@ class GoogleMapsAPIExtractor:
                     'address': details.get('formatted_address', ''),
                     'phone': details.get('formatted_phone_number', ''),
                     'website': details.get('website', ''),
+                    'google_maps_url': details.get('url', ''),
                     'rating': details.get('rating'),
                     'review_count': details.get('user_ratings_total', 0),
                     'category': ', '.join(details.get('types', [])[:3]),
+                    'business_status': details.get('business_status', ''),
                     'google_place_id': place_id,
                     'quality_score': self.calculate_quality_score({
                         'name': details.get('name'),

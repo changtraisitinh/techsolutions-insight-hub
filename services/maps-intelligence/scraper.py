@@ -88,9 +88,17 @@ class GoogleMapsScraper:
         try:
             business = {}
             
-            # Name
+            # Name - try multiple selectors for reliability
             try:
-                name_elem = await page.query_selector('h1')
+                # Try the main heading in the details panel first
+                name_elem = await page.query_selector('h1.DUwDvf')
+                if not name_elem:
+                    # Fallback to other possible selectors
+                    name_elem = await page.query_selector('div[role="main"] h1')
+                if not name_elem:
+                    # Last resort - any h1 in the details area
+                    name_elem = await page.query_selector('.m6QErb h1')
+                
                 business['name'] = await name_elem.inner_text() if name_elem else ''
             except:
                 business['name'] = ''
@@ -158,12 +166,32 @@ class GoogleMapsScraper:
             except:
                 business['category'] = ''
             
-            # Google Place ID
+            # Business status
+            try:
+                status_elem = await page.query_selector('span[class*="fontBodyMedium"]')
+                status_text = await status_elem.inner_text() if status_elem else ''
+                if 'Open' in status_text or 'Closed' in status_text:
+                    business['business_status'] = 'OPERATIONAL'
+                else:
+                    business['business_status'] = status_text if status_text else ''
+            except:
+                business['business_status'] = ''
+            
+            # Google Place ID & Maps URL
             try:
                 current_url = page.url
                 place_id_match = re.search(r'!1s([^!]+)', current_url)
-                business['google_place_id'] = place_id_match.group(1) if place_id_match else ''
+                place_id = place_id_match.group(1) if place_id_match else ''
+                
+                # If the URL is still a search/results page, construct a direct link using Place ID
+                if '/search/' in current_url and place_id:
+                    business['google_maps_url'] = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+                else:
+                    business['google_maps_url'] = current_url
+                    
+                business['google_place_id'] = place_id
             except:
+                business['google_maps_url'] = ''
                 business['google_place_id'] = ''
             
             return business

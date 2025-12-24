@@ -21,7 +21,7 @@ class GoogleMapsScraper:
         self.headless = headless
         self.results = []
     
-    async def scrape_places(self, location: str, keyword: str, max_results: int = 100) -> List[Dict]:
+    async def scrape_places(self, location: str, keyword: str, max_results: int = 10) -> List[Dict]:
         """
         Scrape places from Google Maps
         
@@ -119,9 +119,17 @@ class GoogleMapsScraper:
         try:
             business = {}
             
-            # Name
+            # Name - try multiple selectors for reliability
             try:
-                name_elem = await page.query_selector('h1')
+                # Try the main heading in the details panel first
+                name_elem = await page.query_selector('h1.DUwDvf')
+                if not name_elem:
+                    # Fallback to other possible selectors
+                    name_elem = await page.query_selector('div[role="main"] h1')
+                if not name_elem:
+                    # Last resort - any h1 in the details area
+                    name_elem = await page.query_selector('.m6QErb h1')
+                
                 business['name'] = await name_elem.inner_text() if name_elem else ''
             except:
                 business['name'] = ''
@@ -201,12 +209,21 @@ class GoogleMapsScraper:
             except:
                 business['business_status'] = ''
             
-            # Get Google Maps URL for place ID
+            # Google Place ID & Maps URL
             try:
                 current_url = page.url
                 place_id_match = re.search(r'!1s([^!]+)', current_url)
-                business['google_place_id'] = place_id_match.group(1) if place_id_match else ''
+                place_id = place_id_match.group(1) if place_id_match else ''
+                
+                # If URL is still search results, construct direct link
+                if '/search/' in current_url and place_id:
+                    business['google_maps_url'] = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+                else:
+                    business['google_maps_url'] = current_url
+                
+                business['google_place_id'] = place_id
             except:
+                business['google_maps_url'] = ''
                 business['google_place_id'] = ''
             
             return business
@@ -285,7 +302,7 @@ def scrape(location: str, keyword: str, output: str, max_results: int, headless:
         # Reorder columns
         column_order = [
             'name', 'rating', 'review_count', 'quality_score',
-            'phone', 'address', 'website', 
+            'phone', 'address', 'website', 'google_maps_url',
             'category', 'business_status',
             'google_place_id'
         ]

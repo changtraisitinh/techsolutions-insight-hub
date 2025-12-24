@@ -1,15 +1,102 @@
 'use client';
 
-import { useState } from 'react';
-import { MapPinIcon, MagnifyingGlassIcon, ArrowDownTrayIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect } from 'react';
+import { MapPinIcon, MagnifyingGlassIcon, ArrowDownTrayIcon, PlayIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 export default function ExtractPage() {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_MAPS_API_URL || 'http://127.0.0.1:8001';
+
     const [location, setLocation] = useState('');
     const [keyword, setKeyword] = useState('');
     const [maxResults, setMaxResults] = useState(100);
     const [isExtracting, setIsExtracting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [results, setResults] = useState<any[]>([]);
+    const [lastJobId, setLastJobId] = useState<string | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+
+    const fetchHistory = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/jobs`);
+            if (response.ok) {
+                const data = await response.json();
+                setHistory(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        }
+    };
+
+    const handleLoadResults = async (jobId: string) => {
+        setIsExtracting(true);
+        setProgress(100);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/results`);
+            if (response.ok) {
+                const data = await response.json();
+                setResults(data.leads || []);
+                setLastJobId(jobId);
+            }
+        } catch (error) {
+            alert('Failed to load results');
+        } finally {
+            setIsExtracting(false);
+        }
+    };
+
+    // Fetch history on mount
+    useEffect(() => {
+        fetchHistory();
+    }, []);
+
+    const handleExport = () => {
+        if (results.length === 0) return;
+
+        // Simple CSV export
+        const csv = [
+            ['Name', 'Category', 'Address', 'Phone', 'Website', 'Google Maps Link', 'Rating', 'Reviews', 'Status', 'Quality Score'].join(','),
+            ...results.map(lead => [
+                lead.name,
+                lead.category || '',
+                lead.address || '',
+                lead.phone || '',
+                lead.website || '',
+                lead.google_maps_url || '',
+                lead.rating || '',
+                lead.review_count || '',
+                lead.business_status || '',
+                lead.quality_score || ''
+            ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')) // Wrap fields in quotes and escape existing quotes
+        ].join('\n');
+
+        // Create CSV with UTF-8 BOM for Excel compatibility with Vietnamese characters
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+
+        // Final fallback for sanitization
+        const safeKeyword = (keyword || 'leads').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const safeLocation = (location || 'area').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leads_${safeKeyword}_${safeLocation}_${dateStr}.csv`;
+
+        // Re-force the download attribute and append to DOM
+        document.body.appendChild(a);
+
+        // Trigger download
+        a.click();
+
+        // Important: Increase delay to 2 seconds to allow slower systems/browsers to process the blob
+        setTimeout(() => {
+            if (document.body.contains(a)) {
+                document.body.removeChild(a);
+            }
+            window.URL.revokeObjectURL(url);
+        }, 2000);
+    };
 
     const handleExtract = async () => {
         if (!location || !keyword) {
@@ -31,7 +118,7 @@ export default function ExtractPage() {
 
         try {
             // Call Maps Intelligence API
-            const response = await fetch('http://localhost:8001/api/extract', {
+            const response = await fetch(`${API_BASE_URL}/api/extract`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -55,7 +142,11 @@ export default function ExtractPage() {
 
             // Update results
             setResults(data.leads || []);
+            setLastJobId(data.job_id);
             setProgress(100);
+
+            // Refresh history
+            fetchHistory();
 
             // Show success message
             alert(`✅ Successfully extracted ${data.leads_count} leads in ${data.execution_time.toFixed(1)}s!`);
@@ -262,7 +353,10 @@ export default function ExtractPage() {
                     </button>
 
                     {results.length > 0 && (
-                        <button className="btn-secondary flex items-center gap-2">
+                        <button
+                            onClick={handleExport}
+                            className="btn-secondary flex items-center gap-2"
+                        >
                             <ArrowDownTrayIcon className="w-5 h-5" />
                             <span>Export to CSV</span>
                         </button>
@@ -310,29 +404,7 @@ export default function ExtractPage() {
                                 </p>
                             </div>
                             <button
-                                onClick={() => {
-                                    // Simple CSV export
-                                    const csv = [
-                                        ['Name', 'Category', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Quality Score'].join(','),
-                                        ...results.map(lead => [
-                                            lead.name,
-                                            lead.category || '',
-                                            lead.address || '',
-                                            lead.phone || '',
-                                            lead.website || '',
-                                            lead.rating || '',
-                                            lead.review_count || '',
-                                            lead.quality_score || ''
-                                        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')) // Wrap fields in quotes and escape existing quotes
-                                    ].join('\n');
-
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `leads-${keyword}-${location}-${new Date().toISOString().split('T')[0]}.csv`;
-                                    a.click();
-                                }}
+                                onClick={handleExport}
                                 className="btn-secondary flex items-center gap-2"
                             >
                                 <ArrowDownTrayIcon className="w-5 h-5" />
@@ -351,6 +423,8 @@ export default function ExtractPage() {
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Phone</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Website</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Address</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Maps</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Quality</th>
                                 </tr>
                             </thead>
@@ -387,6 +461,23 @@ export default function ExtractPage() {
                                         <td className="py-3 px-4 text-sm text-gray-600 max-w-[250px] truncate">
                                             {lead.address || '-'}
                                         </td>
+                                        <td className="py-3 px-4 text-sm">
+                                            {lead.google_maps_url ? (
+                                                <a
+                                                    href={lead.google_maps_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:underline"
+                                                >
+                                                    View on Maps
+                                                </a>
+                                            ) : '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm">
+                                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${lead.business_status === 'OPERATIONAL' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'}`}>
+                                                {lead.business_status || '-'}
+                                            </span>
+                                        </td>
                                         <td className="py-3 px-4">
                                             <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${(lead.quality_score || 0) >= 85 ? 'bg-green-100 text-green-700' :
                                                 (lead.quality_score || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
@@ -402,6 +493,67 @@ export default function ExtractPage() {
                     </div>
                 </div>
             )}
+
+            {/* Recent Extractions History */}
+            <div className="card">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-purple-50 rounded-lg">
+                        <ClockIcon className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Recent Extractions</h2>
+                        <p className="text-sm text-gray-600">History of your past search results</p>
+                    </div>
+                </div>
+
+                {history.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-gray-200">
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Job Id</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Run Date</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Leads</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {history.map((job) => (
+                                    <tr key={job.job_id} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <td className="py-3 px-4 text-sm font-mono text-gray-500">
+                                            {job.job_id.split('-')[0]}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm text-gray-600">
+                                            {job.created_at ? new Date(job.created_at).toLocaleString() : '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                            {job.leads_count} leads
+                                        </td>
+                                        <td className="py-3 px-4 text-sm">
+                                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                job.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                {job.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <button
+                                                onClick={() => handleLoadResults(job.job_id)}
+                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                            >
+                                                View Results
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500 text-center py-6">No search history found</p>
+                )}
+            </div>
 
             {/* Instructions */}
             <div className="card bg-blue-50 border-blue-200">
