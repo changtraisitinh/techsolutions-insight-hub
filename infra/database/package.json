@@ -1,0 +1,7 @@
+{
+    "name": "insight-hub-database",
+    "version": "1.0.0",
+    "dependencies": {
+        "prisma": "6.2.1"
+    }
+}

@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExtractionJob {
+  id            String      @id
+  location      String?
+  keyword       String?
+  method        String?
+  status        String?
+  progress      Int         @default(0)
+  leadsCount    Int         @default(0) @map("leads_count")
+  errorMessage  String?     @map("error_message") @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @default(now()) @map("updated_at")
+  
+  leads         Lead[]
+
+  @@map("extraction_jobs")
+}
+
+model Lead {
+  id               Int           @id @default(autoincrement())
+  jobId            String        @map("job_id")
+  name             String
+  address          String?       @db.Text
+  phone            String?
+  website          String?       @db.Text
+  googleMapsUrl    String?       @map("google_maps_url") @db.Text
+  rating           Float?
+  reviewCount      Int?          @map("review_count")
+  category         String?
+  businessStatus   String?       @map("business_status")
+  qualityScore     Int?          @map("quality_score")
+  googlePlaceId    String?       @map("google_place_id")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  
+  job              ExtractionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("leads")
+}
