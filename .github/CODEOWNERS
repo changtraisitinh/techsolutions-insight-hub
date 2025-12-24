@@ -1,0 +1,20 @@
+# Code Owners
+
+# Services
+/services/maps-intelligence/ @insight-hub/backend-team
+/services/lead-enrichment/ @insight-hub/backend-team
+/services/insight-engine/ @insight-hub/ml-team @insight-hub/product-team
+/services/scoring-engine/ @insight-hub/ml-team
+/services/crm-service/ @insight-hub/backend-team
+/services/automation-service/ @insight-hub/backend-team
+/services/api-gateway/ @insight-hub/infra-team
+
+# Documentation
+/docs/ @insight-hub/product-team
+
+# Infrastructure
+/infra/ @insight-hub/infra-team
+/.github/ @insight-hub/infra-team
+
+# Packages
+/packages/ @insight-hub/backend-team

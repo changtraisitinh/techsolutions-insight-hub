@@ -1,0 +1,12 @@
+googlemaps>=4.10.0
+python-dotenv>=1.0.0
+pandas>=2.1.0
+click>=8.1.0
+
+# Playwright for web scraping (alternative to API)
+playwright>=1.40.0
+
+# FastAPI for REST API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
