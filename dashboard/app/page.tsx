@@ -1,22 +1,65 @@
-import { ChartBarIcon, MapIcon, UsersIcon, SparklesIcon } from '@heroicons/react/24/outline';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { ChartBarIcon, MapIcon, UsersIcon, SparklesIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 export default function Home() {
-  const stats = [
-    { name: 'Total Leads', value: '2,543', change: '+12.5%', icon: UsersIcon, color: 'blue' },
-    { name: 'Extractions', value: '18', change: '+3 this week', icon: MapIcon, color: 'green' },
-    { name: 'Quality Score', value: '78.5', change: '+2.3 pts', icon: SparklesIcon, color: 'purple' },
-    { name: 'Conversion Rate', value: '24%', change: '+5.2%', icon: ChartBarIcon, color: 'orange' },
-  ];
+  const API_BASE_URL = process.env.NEXT_PUBLIC_MAPS_API_URL || 'http://127.0.0.1:8001';
 
-  const recentExtractions = [
-    { id: 1, location: 'Ho Chi Minh City', keyword: 'coffee shop', leads: 58, date: '2024-12-24', status: 'completed' },
-    { id: 2, location: 'Hanoi', keyword: 'restaurant', leads: 92, date: '2024-12-23', status: 'completed' },
-    { id: 3, location: 'Da Nang', keyword: 'hotel', leads: 45, date: '2024-12-22', status: 'completed' },
-  ];
+  const [statsData, setStatsData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStats = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setStatsData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const stats = statsData ? [
+    { name: 'Total Leads Found', value: statsData.total_leads.toLocaleString(), change: 'Raw database records', icon: UsersIcon, color: 'blue' },
+    { name: 'Extraction Jobs', value: statsData.total_jobs.toLocaleString(), change: 'Total search runs', icon: MapIcon, color: 'green' },
+    { name: 'Avg Quality Score', value: statsData.avg_quality, change: 'Managed leads only', icon: SparklesIcon, color: 'purple' },
+    { name: 'Managed Leads', value: statsData.managed_leads.toLocaleString(), change: `${statsData.conversion_rate}% promote rate`, icon: ChartBarIcon, color: 'orange' },
+  ] : [];
+
+  const recentExtractions = statsData?.recent_activity || [];
+
+  if (isLoading && !statsData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <ArrowPathIcon className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+        <p className="text-gray-500">Loading your intelligence dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Platform Overview</h2>
+        <button
+          onClick={fetchStats}
+          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => {
@@ -27,7 +70,7 @@ export default function Home() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                  <p className="text-sm text-green-600 mt-2">{stat.change}</p>
+                  <p className="text-sm text-gray-500 mt-2">{stat.change}</p>
                 </div>
                 <div className={`p-3 bg-${stat.color}-50 rounded-lg`}>
                   <Icon className={`w-6 h-6 text-${stat.color}-600`} />
@@ -75,27 +118,39 @@ export default function Home() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Location</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Keyword</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Leads Found</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Location</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Leads</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Date</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
               </tr>
             </thead>
             <tbody>
-              {recentExtractions.map((extraction) => (
-                <tr key={extraction.id} className="border-b border-gray-100">
-                  <td className="py-3 px-4 text-sm text-gray-900">{extraction.location}</td>
-                  <td className="py-3 px-4 text-sm text-gray-600">{extraction.keyword}</td>
-                  <td className="py-3 px-4 text-sm font-medium text-gray-900">{extraction.leads}</td>
-                  <td className="py-3 px-4 text-sm text-gray-600">{extraction.date}</td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                      {extraction.status}
-                    </span>
+              {recentExtractions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    No recent activity found. Start your first extraction!
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentExtractions.map((extraction: any) => (
+                  <tr key={extraction.job_id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900">{extraction.keyword}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{extraction.location}</td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900">{extraction.leads_count}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {new Date(extraction.date).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${extraction.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        extraction.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                        {extraction.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

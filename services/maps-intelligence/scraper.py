@@ -117,16 +117,42 @@ class GoogleMapsScraper:
             
             # Review count
             try:
+                # Primary: The reviews button
                 reviews_elem = await page.query_selector('button[aria-label*="reviews"]')
+                if not reviews_elem:
+                    # Fallback: A direct span or div containing the review count
+                    reviews_elem = await page.query_selector('span[aria-label*="reviews"]')
+                
                 if reviews_elem:
                     aria_label = await reviews_elem.get_attribute('aria-label')
-                    reviews_match = re.search(r'([\d,]+)\s+reviews', aria_label)
+                    # Match English: "123 reviews" or "1,234 reviews"
+                    # Match Vietnamese: "123 đánh giá" or "1.234 đánh giá"
+                    reviews_match = re.search(r'([\d,.]+)\s+(?:reviews|đánh giá)', aria_label)
+                    
                     if reviews_match:
-                        business['review_count'] = int(reviews_match.group(1).replace(',', ''))
+                        # Normalize number (remove commas and dots)
+                        count_str = reviews_match.group(1).replace(',', '').replace('.', '')
+                        business['review_count'] = int(count_str)
+                    else:
+                        # Try another pattern: just the number in parentheses if it's near the stars
+                        # Often looks like: (123) or 123
+                        text = await reviews_elem.inner_text()
+                        number_match = re.search(r'\(?([\d,.]+)\)?', text)
+                        if number_match:
+                            count_str = number_match.group(1).replace(',', '').replace('.', '')
+                            business['review_count'] = int(count_str)
+                        else:
+                            business['review_count'] = 0
+                else:
+                    # Last resort: Try common class name for reviews near the rating
+                    rating_container = await page.query_selector('.F7kYSe')
+                    if rating_container:
+                        text = await rating_container.inner_text()
+                        # Look for numbers in parentheses like (42)
+                        num_match = re.search(r'\((\d+)\)', text)
+                        business['review_count'] = int(num_match.group(1)) if num_match else 0
                     else:
                         business['review_count'] = 0
-                else:
-                    business['review_count'] = 0
             except:
                 business['review_count'] = 0
             

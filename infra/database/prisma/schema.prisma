@@ -38,6 +38,7 @@ model Lead {
   businessStatus   String?       @map("business_status")
   qualityScore     Int?          @map("quality_score")
   googlePlaceId    String?       @map("google_place_id")
+  isSaved          Boolean       @default(false) @map("is_saved")
   createdAt        DateTime      @default(now()) @map("created_at")
   
   job              ExtractionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)

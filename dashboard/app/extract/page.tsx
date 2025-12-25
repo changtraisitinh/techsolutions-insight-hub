@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPinIcon, MagnifyingGlassIcon, ArrowDownTrayIcon, PlayIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, MagnifyingGlassIcon, ArrowDownTrayIcon, PlayIcon, ClockIcon, UsersIcon, UserPlusIcon, CheckIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
 export default function ExtractPage() {
     const API_BASE_URL = process.env.NEXT_PUBLIC_MAPS_API_URL || 'http://127.0.0.1:8001';
@@ -14,6 +14,8 @@ export default function ExtractPage() {
     const [results, setResults] = useState<any[]>([]);
     const [lastJobId, setLastJobId] = useState<string | null>(null);
     const [history, setHistory] = useState<any[]>([]);
+    const [detectedAddress, setDetectedAddress] = useState<string | null>(null);
+    const [isDetecting, setIsDetecting] = useState(false);
 
     const fetchHistory = async () => {
         try {
@@ -42,6 +44,42 @@ export default function ExtractPage() {
         } finally {
             setIsExtracting(false);
         }
+    };
+
+    const handleDetectLocation = () => {
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser");
+            return;
+        }
+
+        setIsDetecting(true);
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const { latitude, longitude } = position.coords;
+            const coords = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/geolocate?lat=${latitude}&lng=${longitude}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setDetectedAddress(data.address);
+                    // Update location to the province to match dropdown if possible
+                    if (data.province) {
+                        setLocation(data.province);
+                    } else {
+                        setLocation(coords);
+                    }
+                } else {
+                    setLocation(coords);
+                }
+            } catch (error) {
+                setLocation(coords);
+            } finally {
+                setIsDetecting(false);
+            }
+        }, (error) => {
+            setIsDetecting(false);
+            alert(`Geolocation error: ${error.message}`);
+        });
     };
 
     // Fetch history on mount
@@ -167,6 +205,40 @@ export default function ExtractPage() {
             setIsExtracting(false);
         }
     };
+
+    const handleSaveLead = async (leadId: number) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/save`, {
+                method: 'POST',
+            });
+            if (response.ok) {
+                // Update local status
+                setResults(prev => prev.map(l => l.id === leadId ? { ...l, is_saved: true } : l));
+            }
+        } catch (error) {
+            console.error('Failed to save lead:', error);
+        }
+    };
+
+    const handleConvertToLeads = async () => {
+        if (!lastJobId) return;
+
+        if (!confirm(`Are you sure you want to convert all ${results.length} results into managed leads?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/jobs/${lastJobId}/convert`, {
+                method: 'POST',
+            });
+            if (response.ok) {
+                alert('Success! All results have been promoted to your Leads list.');
+                setResults(prev => prev.map(l => ({ ...l, is_saved: true })));
+            }
+        } catch (error) {
+            alert('Failed to convert leads');
+        }
+    };
     const presets = [
         { location: 'Ho Chi Minh City', keyword: 'coffee shop' },
         { location: 'Hanoi', keyword: 'restaurant' },
@@ -196,15 +268,29 @@ export default function ExtractPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Location (Province/City)
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Location (Province/City)
+                            </label>
+                            <button
+                                onClick={handleDetectLocation}
+                                disabled={isDetecting}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 disabled:opacity-50"
+                            >
+                                <MapPinIcon className={`w-3 h-3 ${isDetecting ? 'animate-pulse' : ''}`} />
+                                {isDetecting ? 'Detecting...' : 'Detect Near By Me'}
+                            </button>
+                        </div>
                         <select
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
+                            value={location.includes(',') || (detectedAddress && location) ? location : location}
+                            onChange={(e) => {
+                                setLocation(e.target.value);
+                                if (detectedAddress) setDetectedAddress(null); // Clear address if they manually change
+                            }}
                             className="input"
                         >
                             <option value="">-- Select Province/City --</option>
+                            <option value="nearby" hidden>📍 Near by me (Current Location)</option>
                             <option value="Ho Chi Minh City">Ho Chi Minh City</option>
                             <option value="Hanoi">Hanoi</option>
                             <option value="Da Nang">Da Nang</option>
@@ -269,6 +355,22 @@ export default function ExtractPage() {
                             <option value="Vinh Phuc">Vinh Phuc</option>
                             <option value="Yen Bai">Yen Bai</option>
                         </select>
+                        {(location.includes(',') || detectedAddress) && (
+                            <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100 animate-in fade-in slide-in-from-top-1">
+                                <p className="text-xs text-blue-700 font-bold flex items-center gap-1">
+                                    <MapPinIcon className="w-3 h-3" />
+                                    Location Identified
+                                </p>
+                                {detectedAddress && (
+                                    <p className="text-xs text-gray-700 mt-1 italic leading-relaxed">
+                                        {detectedAddress}
+                                    </p>
+                                )}
+                                <p className="text-[10px] text-blue-500 mt-1 font-mono">
+                                    Coords: {location.includes(',') ? location : 'Using profile center'}
+                                </p>
+                            </div>
+                        )}
                         <p className="text-xs text-gray-500 mt-1">Select a province or city in Vietnam</p>
                     </div>
 
@@ -404,6 +506,13 @@ export default function ExtractPage() {
                                 </p>
                             </div>
                             <button
+                                onClick={handleConvertToLeads}
+                                className="btn-primary flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+                            >
+                                <UsersIcon className="w-5 h-5" />
+                                Convert All to Leads
+                            </button>
+                            <button
                                 onClick={handleExport}
                                 className="btn-secondary flex items-center gap-2"
                             >
@@ -426,6 +535,7 @@ export default function ExtractPage() {
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Maps</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Quality</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -461,15 +571,16 @@ export default function ExtractPage() {
                                         <td className="py-3 px-4 text-sm text-gray-600 max-w-[250px] truncate">
                                             {lead.address || '-'}
                                         </td>
-                                        <td className="py-3 px-4 text-sm">
+                                        <td className="py-3 px-4 text-center">
                                             {lead.google_maps_url ? (
                                                 <a
                                                     href={lead.google_maps_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:underline"
+                                                    className="flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg w-8 h-8 mx-auto transition-colors"
+                                                    title="View on Google Maps"
                                                 >
-                                                    View on Maps
+                                                    <ArrowTopRightOnSquareIcon className="w-5 h-5" />
                                                 </a>
                                             ) : '-'}
                                         </td>
@@ -485,6 +596,21 @@ export default function ExtractPage() {
                                                 }`}>
                                                 {lead.quality_score || 0}
                                             </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-center">
+                                            {lead.is_saved ? (
+                                                <div className="flex items-center justify-center text-green-600 bg-green-50 rounded-full w-8 h-8 mx-auto" title="Already Saved">
+                                                    <CheckIcon className="w-5 h-5" />
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleSaveLead(lead.id)}
+                                                    className="flex items-center justify-center text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 rounded-full w-8 h-8 mx-auto transition-all duration-200"
+                                                    title="Add to Leads"
+                                                >
+                                                    <UserPlusIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -512,6 +638,8 @@ export default function ExtractPage() {
                             <thead>
                                 <tr className="border-b border-gray-200">
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Job Id</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Keyword</th>
+                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Location</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Run Date</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Leads</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
@@ -523,6 +651,12 @@ export default function ExtractPage() {
                                     <tr key={job.job_id} className="border-b border-gray-100 hover:bg-gray-50">
                                         <td className="py-3 px-4 text-sm font-mono text-gray-500">
                                             {job.job_id.split('-')[0]}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm text-gray-900 font-medium">
+                                            {job.keyword}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm text-gray-600">
+                                            {job.location}
                                         </td>
                                         <td className="py-3 px-4 text-sm text-gray-600">
                                             {job.created_at ? new Date(job.created_at).toLocaleString() : '-'}

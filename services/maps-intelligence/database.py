@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -46,7 +46,10 @@ class LeadModel(Base):
     business_status = Column(String, nullable=True)
     quality_score = Column(Integer, nullable=True)
     google_place_id = Column(String, nullable=True)
+    is_saved = Column(Boolean, default=False)
+    status = Column(String, default="New") # New, Contacted, Interested, Not Interested, Converted
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     job = relationship("ExtractionJob", back_populates="leads")
 
