@@ -13,6 +13,7 @@ import {
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
+    { name: 'Agent Research', href: '/agent', icon: SparklesIcon },
     { name: 'Extract Leads', href: '/extract', icon: MapIcon },
     { name: 'Leads', href: '/leads', icon: UsersIcon },
     { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
@@ -46,8 +47,8 @@ export default function Sidebar() {
                             key={item.name}
                             href={item.href}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
-                                    ? 'bg-blue-50 text-blue-600 font-medium'
-                                    : 'text-gray-700 hover:bg-gray-50'
+                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                : 'text-gray-700 hover:bg-gray-50'
                                 }`}
                         >
                             <item.icon className="w-5 h-5" />

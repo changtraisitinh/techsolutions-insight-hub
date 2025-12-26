@@ -6,7 +6,6 @@ import {
     CircleStackIcon,
     KeyIcon,
     ScaleIcon,
-    ExclamationTriangleIcon,
     CheckCircleIcon,
     ArrowPathIcon,
     ShieldCheckIcon
@@ -18,7 +17,9 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState<any>(null);
     const [health, setHealth] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isResetting, setIsResetting] = useState(false);
+
+    const [geminiKey, setGeminiKey] = useState('');
+    const [isSavingKeys, setIsSavingKeys] = useState(false);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -39,27 +40,28 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchData();
+        // Load local settings
+        const storedKey = localStorage.getItem('gemini_api_key');
+        if (storedKey) setGeminiKey(storedKey);
     }, []);
 
-    const handleResetDatabase = async () => {
-        if (!confirm('CRITICAL ACTION: This will delete ALL leads and extraction jobs from the database. This cannot be undone. Are you sure?')) {
-            return;
-        }
+    const handleSaveKeys = () => {
+        setIsSavingKeys(true);
+        localStorage.setItem('gemini_api_key', geminiKey);
 
-        const password = prompt('Please type "RESET" to confirm:');
-        if (password !== 'RESET') return;
+        // Simulate API delay for UX
+        setTimeout(() => {
+            setIsSavingKeys(false);
+            alert('API Keys saved locally. The Agent will now use this key.');
+        }, 800);
+    };
 
-        setIsResetting(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/database/reset`, { method: 'POST' });
-            if (response.ok) {
-                alert('Database successfully wiped.');
-                fetchData();
-            }
-        } catch (error) {
-            alert('Failed to reset database');
-        } finally {
-            setIsResetting(false);
+
+
+    const scrollToSection = (id: string) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
         }
     };
 
@@ -81,31 +83,39 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Sidebar Navigation (Visual Only) */}
-                <div className="md:col-span-1 space-y-1">
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium">
+                {/* Sidebar Navigation */}
+                <div className="md:col-span-1 space-y-1 sticky top-8 h-fit">
+                    <button
+                        onClick={() => scrollToSection('general-config')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 text-left"
+                    >
                         <CogIcon className="w-5 h-5" />
                         General Configuration
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50">
+                    <button
+                        onClick={() => scrollToSection('scoring-logic')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 text-left"
+                    >
                         <ScaleIcon className="w-5 h-5" />
                         Scoring Logic
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50">
+                    <button
+                        onClick={() => scrollToSection('api-keys')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-700 font-medium text-left"
+                    >
                         <KeyIcon className="w-5 h-5" />
                         API Keys
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-600 hover:bg-red-50">
-                        <ExclamationTriangleIcon className="w-5 h-5" />
-                        Maintenance
-                    </button>
+
                 </div>
 
                 {/* Main Content Area */}
                 <div className="md:col-span-2 space-y-8">
 
+
+
                     {/* System Health */}
-                    <div className="card">
+                    <div id="general-config" className="card">
                         <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2">
                                 <ShieldCheckIcon className="w-5 h-5 text-green-500" />
@@ -131,7 +141,7 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                 <div className="flex items-center gap-3">
                                     <KeyIcon className="w-5 h-5 text-gray-400" />
-                                    <span className="text-sm font-medium text-gray-700">Google Maps API</span>
+                                    <span className="text-sm font-medium text-gray-700">Google Maps API (Backend)</span>
                                 </div>
                                 <span className={`text-xs font-bold ${health?.google_api_configured ? 'text-green-600' : 'text-yellow-600'}`}>
                                     {health?.google_api_configured ? 'READY' : 'MISSING KEY'}
@@ -141,7 +151,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Lead Scoring Weights */}
-                    <div className="card">
+                    <div id="scoring-logic" className="card">
                         <div className="flex items-center gap-2 mb-6">
                             <ScaleIcon className="w-5 h-5 text-blue-500" />
                             <h3 className="text-lg font-bold text-gray-900">Lead Scoring Engine</h3>
@@ -169,27 +179,48 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    {/* Maintenance */}
-                    <div className="card border-red-100 bg-red-50/10">
+                    {/* API Keys Section */}
+                    <div id="api-keys" className="card border-blue-100 ring-4 ring-blue-50/50">
                         <div className="flex items-center gap-2 mb-6">
-                            <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
-                            <h3 className="text-lg font-bold text-red-900">Danger Zone</h3>
+                            <KeyIcon className="w-5 h-5 text-blue-600" />
+                            <h3 className="text-lg font-bold text-gray-900">API Keys</h3>
                         </div>
 
-                        <div className="p-4 border border-red-200 rounded-xl bg-white">
-                            <h4 className="text-sm font-bold text-gray-900 mb-1">Clear Platform History</h4>
-                            <p className="text-xs text-gray-500 mb-4">
-                                This will permanently delete all stored leads and previous extraction job metadata.
-                            </p>
-                            <button
-                                onClick={handleResetDatabase}
-                                disabled={isResetting}
-                                className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-                            >
-                                {isResetting ? 'Wiping...' : 'Reset Database'}
-                            </button>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Gemini API Key (Agent Research)
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={geminiKey}
+                                        onChange={(e) => setGeminiKey(e.target.value)}
+                                        placeholder="AIza..."
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-24 font-mono text-sm"
+                                    />
+                                    <div className="absolute right-2 top-1.5 px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500 border border-gray-200">
+                                        Google AI
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    This key is stored locally in your browser and sent with requests to the Agent Orchestrator.
+                                </p>
+                            </div>
+
+                            <div className="pt-2 flex justify-end">
+                                <button
+                                    onClick={handleSaveKeys}
+                                    disabled={isSavingKeys}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+                                >
+                                    {isSavingKeys ? 'Saving...' : 'Save Keys'}
+                                </button>
+                            </div>
                         </div>
                     </div>
+
+
 
                     {/* Environment Info */}
                     <div className="flex items-center justify-center gap-8 py-4 px-6 bg-gray-100 rounded-2xl border border-gray-200">
