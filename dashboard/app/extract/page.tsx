@@ -6,6 +6,20 @@ import { MapPinIcon, MagnifyingGlassIcon, ArrowDownTrayIcon, PlayIcon, ClockIcon
 export default function ExtractPage() {
     const API_BASE_URL = process.env.NEXT_PUBLIC_MAPS_API_URL || 'http://127.0.0.1:8001';
 
+    const formatPhoneNumber = (phone: any) => {
+        if (!phone) return '';
+        let clean = String(phone).replace(/\s+/g, '');
+        if (clean.startsWith('+84')) {
+            clean = '0' + clean.slice(3);
+        }
+        return clean;
+    };
+
+    const cleanText = (text: any) => {
+        if (!text) return '';
+        return String(text).replace(/[]/g, '').replace(/^(Address:|Địa chỉ:)\s*/i, '').trim();
+    };
+
     const [location, setLocation] = useState('');
     const [keyword, setKeyword] = useState('');
     const [maxResults, setMaxResults] = useState(100);
@@ -92,17 +106,16 @@ export default function ExtractPage() {
 
         // Simple CSV export
         const csv = [
-            ['Name', 'Category', 'Address', 'Phone', 'Website', 'Google Maps Link', 'Rating', 'Reviews', 'Status', 'Quality Score'].join(','),
+            ['Name', 'Category', 'Address', 'Phone', 'Website', 'Google Maps Link', 'Rating', 'Reviews', 'Quality Score'].join(','),
             ...results.map(lead => [
-                lead.name,
-                lead.category || '',
-                lead.address || '',
-                lead.phone || '',
+                cleanText(lead.name),
+                cleanText(lead.category) || '',
+                cleanText(lead.address) || '',
+                formatPhoneNumber(lead.phone),
                 lead.website || '',
                 lead.google_maps_url || '',
                 lead.rating || '',
                 lead.review_count || '',
-                lead.business_status || '',
                 lead.quality_score || ''
             ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')) // Wrap fields in quotes and escape existing quotes
         ].join('\n');
@@ -409,8 +422,8 @@ export default function ExtractPage() {
                             Method
                         </label>
                         <select className="input">
-                            <option value="scraping">Web Scraping (Free)</option>
-                            <option value="api">Google API (Faster, requires key)</option>
+                            <option value="scraping">Web Scraping</option>
+                            <option value="api">Google API</option>
                         </select>
                     </div>
                 </div>
@@ -532,10 +545,7 @@ export default function ExtractPage() {
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Phone</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Website</th>
                                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Address</th>
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Maps</th>
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Quality</th>
-                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Action</th>
+                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -543,9 +553,6 @@ export default function ExtractPage() {
                                     <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                                         <td className="py-3 px-4">
                                             <div className="text-sm font-medium text-gray-900">{lead.name}</div>
-                                            {lead.review_count && lead.review_count > 0 && (
-                                                <div className="text-xs text-gray-500">{lead.review_count} reviews</div>
-                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-sm text-gray-600">{lead.category || '-'}</td>
                                         <td className="py-3 px-4 text-sm text-gray-600">
@@ -555,7 +562,7 @@ export default function ExtractPage() {
                                                 </span>
                                             ) : '-'}
                                         </td>
-                                        <td className="py-3 px-4 text-sm text-gray-600">{lead.phone || '-'}</td>
+                                        <td className="py-3 px-4 text-sm text-gray-600">{formatPhoneNumber(lead.phone) || '-'}</td>
                                         <td className="py-3 px-4 text-sm">
                                             {lead.website ? (
                                                 <a
@@ -568,49 +575,36 @@ export default function ExtractPage() {
                                                 </a>
                                             ) : '-'}
                                         </td>
-                                        <td className="py-3 px-4 text-sm text-gray-600 max-w-[250px] truncate">
-                                            {lead.address || '-'}
+                                        <td className="py-3 px-4 text-sm text-gray-600 max-w-[250px] truncate" title={cleanText(lead.address)}>
+                                            {cleanText(lead.address) || '-'}
                                         </td>
-                                        <td className="py-3 px-4 text-center">
-                                            {lead.google_maps_url ? (
-                                                <a
-                                                    href={lead.google_maps_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg w-8 h-8 mx-auto transition-colors"
-                                                    title="View on Google Maps"
-                                                >
-                                                    <ArrowTopRightOnSquareIcon className="w-5 h-5" />
-                                                </a>
-                                            ) : '-'}
-                                        </td>
-                                        <td className="py-3 px-4 text-sm">
-                                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${lead.business_status === 'OPERATIONAL' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'}`}>
-                                                {lead.business_status || '-'}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${(lead.quality_score || 0) >= 85 ? 'bg-green-100 text-green-700' :
-                                                (lead.quality_score || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
-                                                }`}>
-                                                {lead.quality_score || 0}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            {lead.is_saved ? (
-                                                <div className="flex items-center justify-center text-green-600 bg-green-50 rounded-full w-8 h-8 mx-auto" title="Already Saved">
-                                                    <CheckIcon className="w-5 h-5" />
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleSaveLead(lead.id)}
-                                                    className="flex items-center justify-center text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 rounded-full w-8 h-8 mx-auto transition-all duration-200"
-                                                    title="Add to Leads"
-                                                >
-                                                    <UserPlusIcon className="w-4 h-4" />
-                                                </button>
-                                            )}
+                                        <td className="py-3 px-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {lead.google_maps_url && (
+                                                    <a
+                                                        href={lead.google_maps_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg w-8 h-8 transition-colors"
+                                                        title="View on Google Maps"
+                                                    >
+                                                        <ArrowTopRightOnSquareIcon className="w-5 h-5" />
+                                                    </a>
+                                                )}
+                                                {lead.is_saved ? (
+                                                    <div className="flex items-center justify-center text-green-600 bg-green-50 rounded-full w-8 h-8" title="Already Saved">
+                                                        <CheckIcon className="w-5 h-5" />
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleSaveLead(lead.id)}
+                                                        className="flex items-center justify-center text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 rounded-full w-8 h-8 transition-all duration-200"
+                                                        title="Add to Leads"
+                                                    >
+                                                        <UserPlusIcon className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

@@ -116,50 +116,65 @@ class GoogleMapsScraper:
                 business['rating'] = None
             
             # Review count
+            # Review count
             try:
-                # Primary: The reviews button
-                reviews_elem = await page.query_selector('button[aria-label*="reviews"]')
-                if not reviews_elem:
-                    # Fallback: A direct span or div containing the review count
-                    reviews_elem = await page.query_selector('span[aria-label*="reviews"]')
-                
-                if reviews_elem:
-                    aria_label = await reviews_elem.get_attribute('aria-label')
-                    # Match English: "123 reviews" or "1,234 reviews"
-                    # Match Vietnamese: "123 đánh giá" or "1.234 đánh giá"
-                    reviews_match = re.search(r'([\d,.]+)\s+(?:reviews|đánh giá)', aria_label)
-                    
-                    if reviews_match:
-                        # Normalize number (remove commas and dots)
-                        count_str = reviews_match.group(1).replace(',', '').replace('.', '')
-                        business['review_count'] = int(count_str)
-                    else:
-                        # Try another pattern: just the number in parentheses if it's near the stars
-                        # Often looks like: (123) or 123
-                        text = await reviews_elem.inner_text()
-                        number_match = re.search(r'\(?([\d,.]+)\)?', text)
-                        if number_match:
-                            count_str = number_match.group(1).replace(',', '').replace('.', '')
-                            business['review_count'] = int(count_str)
-                        else:
-                            business['review_count'] = 0
-                else:
-                    # Last resort: Try common class name for reviews near the rating
-                    rating_container = await page.query_selector('.F7kYSe')
-                    if rating_container:
-                        text = await rating_container.inner_text()
-                        # Look for numbers in parentheses like (42)
-                        num_match = re.search(r'\((\d+)\)', text)
-                        business['review_count'] = int(num_match.group(1)) if num_match else 0
-                    else:
-                        business['review_count'] = 0
-            except:
                 business['review_count'] = 0
+                
+                # Method 1: Check the rating stars aria-label (often contains "4.5 stars 123 reviews")
+                if rating_elem:
+                    stars_aria = await rating_elem.get_attribute('aria-label')
+                    # Match "1,234 reviews" or "1.234 đánh giá" inside the stars label
+                    combined_match = re.search(r'(\d[\d,.]*)\s+(?:reviews|đánh giá)', stars_aria, re.IGNORECASE)
+                    if combined_match:
+                        count_str = combined_match.group(1).replace(',', '').replace('.', '')
+                        business['review_count'] = int(count_str)
+                
+                # Method 2: If not found, check specific review buttons/elements
+                if business['review_count'] == 0:
+                    # Selectors for the reviews count element
+                    reviews_selectors = [
+                        'button[aria-label*="reviews"]',
+                        'button[aria-label*="đánh giá"]',
+                        'span[aria-label*="reviews"]',
+                        'span[aria-label*="đánh giá"]',
+                        'div.F7kYSe', # Common class for review count parent
+                        'span.F7kYSe' 
+                    ]
+                    
+                    for selector in reviews_selectors:
+                        elem = await page.query_selector(selector)
+                        if elem:
+                            # Try aria-label first
+                            aria_label = await elem.get_attribute('aria-label')
+                            if aria_label:
+                                match = re.search(r'(\d[\d,.]*)\s+(?:reviews|đánh giá)', aria_label, re.IGNORECASE)
+                                if match:
+                                    count_str = match.group(1).replace(',', '').replace('.', '')
+                                    business['review_count'] = int(count_str)
+                                    break
+                            
+                            # Try inner text (often just "(123)" or "123")
+                            text = await elem.inner_text()
+                            # Match (123) or just 123 at the start strings
+                            text_match = re.search(r'\(?(\d[\d,.]*)\)?', text)
+                            if text_match:
+                                # Ensure it looks like a number and not part of an address
+                                possibly_number = text_match.group(1).replace(',', '').replace('.', '')
+                                if possibly_number.isdigit() and len(possibly_number) < 7: # Sanity check < 1 million reviews usually
+                                     business['review_count'] = int(possibly_number)
+                                     break
+            except Exception:
+                pass # Default to 0 established at start
             
             # Address
             try:
                 address_elem = await page.query_selector('button[data-item-id="address"]')
-                business['address'] = await address_elem.get_attribute('aria-label') if address_elem else ''
+                if address_elem:
+                    addr_text = await address_elem.get_attribute('aria-label')
+                    # Remove "Address: " or "Địa chỉ: " prefix
+                    business['address'] = addr_text.replace('Address:', '').replace('Địa chỉ:', '').strip() 
+                else:
+                    business['address'] = ''
             except:
                 business['address'] = ''
             

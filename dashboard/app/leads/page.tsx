@@ -5,6 +5,15 @@ import { MagnifyingGlassIcon, FunnelIcon, ArrowDownTrayIcon, GlobeAltIcon, Phone
 export default function LeadsPage() {
     const API_BASE_URL = process.env.NEXT_PUBLIC_MAPS_API_URL || 'http://127.0.0.1:8001';
 
+    const formatPhoneNumber = (phone: any) => {
+        if (!phone) return '';
+        let clean = String(phone).replace(/\s+/g, '');
+        if (clean.startsWith('+84')) {
+            clean = '0' + clean.slice(3);
+        }
+        return clean;
+    };
+
     const [leads, setLeads] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +90,8 @@ export default function LeadsPage() {
                 lead.name,
                 lead.category || '',
                 lead.address || '',
-                lead.phone || '',
+
+                formatPhoneNumber(lead.phone),
                 lead.rating || '',
                 lead.quality_score || 0,
                 lead.status || 'New',
@@ -241,7 +251,7 @@ export default function LeadsPage() {
                                                     {lead.phone && (
                                                         <div className="flex items-center gap-1 text-sm text-gray-700">
                                                             <PhoneIcon className="w-3.5 h-3.5 text-green-600" />
-                                                            {lead.phone}
+                                                            {formatPhoneNumber(lead.phone)}
                                                         </div>
                                                     )}
                                                     {lead.website && (
@@ -257,10 +267,10 @@ export default function LeadsPage() {
                                                     value={lead.status || 'New'}
                                                     onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                                                     className={`text-xs font-bold px-2 py-1 rounded border-none focus:ring-1 focus:ring-blue-500 cursor-pointer ${lead.status === 'Converted' ? 'bg-green-100 text-green-700' :
-                                                            lead.status === 'Contacted' ? 'bg-blue-100 text-blue-700' :
-                                                                lead.status === 'Interested' ? 'bg-purple-100 text-purple-700' :
-                                                                    lead.status === 'Not Interested' ? 'bg-gray-100 text-gray-700' :
-                                                                        'bg-yellow-50 text-yellow-700'
+                                                        lead.status === 'Contacted' ? 'bg-blue-100 text-blue-700' :
+                                                            lead.status === 'Interested' ? 'bg-purple-100 text-purple-700' :
+                                                                lead.status === 'Not Interested' ? 'bg-gray-100 text-gray-700' :
+                                                                    'bg-yellow-50 text-yellow-700'
                                                         }`}
                                                 >
                                                     <option value="New">New</option>
@@ -277,8 +287,8 @@ export default function LeadsPage() {
                                                         <span className="text-gray-400 text-[10px]">({lead.review_count || 0})</span>
                                                     </div>
                                                     <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-fit ${(lead.quality_score || 0) >= 85 ? 'bg-green-100 text-green-700' :
-                                                            (lead.quality_score || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                                                'bg-red-100 text-red-700'
+                                                        (lead.quality_score || 0) >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-red-100 text-red-700'
                                                         }`}>
                                                         Q: {lead.quality_score || 0}
                                                     </div>
