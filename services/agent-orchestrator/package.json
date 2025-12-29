@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "ts-node src/server.ts",
-    "dev": "ts-node src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "cli": "ts-node src/run_agent.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -25,8 +25,12 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "openai": "^6.15.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0"
   }
 }

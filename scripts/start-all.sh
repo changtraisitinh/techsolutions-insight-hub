@@ -44,6 +44,16 @@ echo -e "${GREEN}Starting Prisma Studio...${NC}"
 (cd "$ROOT_DIR/infra/database" && npx prisma studio) &
 PIDS+=($!)
 
+# 4. Start Real Estate Service
+echo -e "${GREEN}Starting Real Estate Service...${NC}"
+(cd "$ROOT_DIR/services/realestate-service" && npm run dev) &
+PIDS+=($!)
+
+# 5. Start Agent Orchestrator
+echo -e "${GREEN}Starting Agent Orchestrator...${NC}"
+(cd "$ROOT_DIR/services/agent-orchestrator" && npm run dev) &
+PIDS+=($!)
+
 # Wait loop
 if [ ${#PIDS[@]} -eq 0 ]; then
     echo "Nothing started."
@@ -53,6 +63,8 @@ fi
 echo -e "${BLUE}All systems go! Access the services at:${NC}"
 echo -e " - Dashboard:       http://localhost:3000"
 echo -e " - Maps API:        http://localhost:8001/docs"
+echo -e " - Real Estate:     http://localhost:8002"
+echo -e " - Agent Orch:      http://localhost:8080"
 echo -e " - Prisma Studio:   http://localhost:5555"
 echo -e "${BLUE}Press Ctrl+C to stop.${NC}"
 
